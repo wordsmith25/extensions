@@ -4,8 +4,8 @@ let asinList = [];
 let currentProcessingTabs = {};
 let maxConcurrentTabs = 25;
 let repeatCount = 0; 
-const repeatLimit = 200; 
-let lastASIN = 'B09GZJPZ6D';
+const repeatLimit = 100000; 
+let lastASIN = 'B09GZJSZ7S';
 let openTabIds = []; 
 let tabStates = {}; 
 
@@ -46,18 +46,19 @@ function updateTabsWithASINs() {
         asinList = generateNextASINs(lastASIN, maxConcurrentTabs);
         repeatCount++;
     }
+
     if (asinList.length > 0) {
         let updatesCount = 0;
         openTabIds.forEach((tabId, index) => {
             
-            if (asinList.length > 0 &&  tabStates[tabId] == 'readyForNext') {
+            if (asinList.length > 0 ) {
                 let asin = asinList.shift();
                 chrome.tabs.update(tabId, { url: `https://www.amazon.com/dp/${asin}` }, () => {
                     updatesCount++;
                     tabStates[tabId] = 'loading';
                     if (updatesCount === maxConcurrentTabs || index === openTabIds.length - 1) {
                         if (asinList.length > 0 || repeatCount < repeatLimit) {
-                            setTimeout(updateTabsWithASINs, 3000);
+                            setTimeout(updateTabsWithASINs, 2000);
                         } else {
                             console.log("Tüm işlemler tamamlandı.");
                         }
@@ -77,8 +78,8 @@ function initializeProcessing() {
         return; 
     }
     if (asinList.length === 0) {
-        lastASIN = generateNextASINs(lastASIN, 20)[19]; 
-        asinList = generateNextASINs(lastASIN, 20);
+        lastASIN = generateNextASINs(lastASIN, maxConcurrentTabs)[maxConcurrentTabs-1]; 
+        asinList = generateNextASINs(lastASIN, maxConcurrentTabs);
         repeatCount++;
         updateTabsWithASINs(); 
     }
@@ -88,9 +89,8 @@ function initializeProcessing() {
 }
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    // const asin = currentProcessingTabs[tabId]
     if (tabStates[tabId] === 'loading') {
-        tabStates[tabId] === 'uploading'
+        tabStates[tabId] === 'waiting'
         chrome.scripting.executeScript({
             target: {tabId: tabId},
             function: postDatabase
@@ -204,7 +204,7 @@ function postDatabase() {
             
 
         } else if (item.textContent.includes('ASIN')) {
-            asin = item.textContent.split(':')[1].trim().replace(/\s/g, '').replace(/^\W+|\W+$/g, '');
+            asin = item.textContent.split(':')[1].trim().replace(/\s/g, '');
         } else if (item.textContent.includes('ISBN-13')) {
             ISBN13 = item.textContent.split(':')[1].trim().replace(/\s/g, '');
         } else if (item.textContent.includes('ISBN-10')) {
